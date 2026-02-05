@@ -63,6 +63,14 @@
 
 Остальные константы (таймауты, калибровка TDS) при необходимости тоже меняются в `config.h`.
 
+### Удалённая телеметрия (HTTPS, опционально)
+
+Если нужна отправка данных на ваш HTTPS-сервер:
+
+1. В **arduino/smart-osmos** скопируйте `server_secrets.h.example` → `server_secrets.h`.
+2. В **server_secrets.h** укажите: `SERVER_HOST`, `SERVER_PORT`, `SERVER_PATH`, `SERVER_API_KEY` (тот же ключ, что и на Python-сервере).
+3. В **config.h** задайте `REMOTE_SEND_INTERVAL_MS` (мс между отправками, например 60000). При 0 отправка отключена.
+
 ---
 
 ## 3. Прошивка (загрузка на ESP32)
@@ -111,6 +119,43 @@
 
 ---
 
+## 5. Python-сервер (приём телеметрии и история)
+
+Сервер принимает JSON по HTTPS, пишет в SQLite и отдаёт UI с графиками по часам/дням/неделям.
+
+### Зависимости
+
+```bash
+cd server
+pip install -r requirements.txt
+```
+
+### Запуск
+
+1. Задайте API-ключ (должен совпадать с `SERVER_API_KEY` в прошивке):
+   ```bash
+   set OSMOS_API_KEY=your-secret-api-key
+   ```
+   (Linux/macOS: `export OSMOS_API_KEY=your-secret-api-key`)
+
+2. Опционально — сгенерировать сертификат для HTTPS (иначе используется adhoc):
+   ```bash
+   python gen_cert.py
+   ```
+   Появятся `cert.pem` и `key.pem` в папке `server/`.
+
+3. Запуск сервера (порт 8443 по умолчанию):
+   ```bash
+   python app.py
+   ```
+   Переменные окружения: `OSMOS_API_KEY`, `OSMOS_HOST` (0.0.0.0), `OSMOS_PORT` (8443), `OSMOS_DB` (путь к SQLite), `OSMOS_CERT`/`OSMOS_KEY` (пути к сертификату).
+
+4. В браузере откройте `https://localhost:8443` (при самоподписанном сертификате подтвердите исключение безопасности). Вкладки «По часам», «По дням», «По неделям» — графики TDS и объёма.
+
+5. В **server_secrets.h** на ESP32 укажите IP машины с сервером и порт (например `SERVER_HOST` = IP ПК, `SERVER_PORT` = 8443). После прошивки ESP32 будет раз в минуту (или по `REMOTE_SEND_INTERVAL_MS`) отправлять JSON на `https://<SERVER_HOST>:<PORT>/api/ingest`.
+
+---
+
 ## Структура проекта
 
 | Путь | Назначение |
@@ -123,7 +168,10 @@
 | **arduino/smart-osmos/flow_meter.*** | Расходомеры: прерывания, дебаунс, л/мин и объём |
 | **arduino/smart-osmos/wifi_connector.*** | Подключение к Wi-Fi и реконнект |
 | **arduino/smart-osmos/web_server.*** | HTTP-сервер, веб-страница и JSON API |
+| **arduino/smart-osmos/remote_sender.*** | Отправка телеметрии по HTTPS на удалённый сервер |
+| **arduino/smart-osmos/server_secrets.h** | Хост, порт, путь и API-ключ сервера (создать из `.example`, в git не коммитить) |
 | **platformio.ini** | Конфигурация PlatformIO, каталог исходников и порт загрузки |
+| **server/** | Python HTTPS-сервер: приём JSON, SQLite, UI с графиками по часам/дням/неделям |
 
 ---
 

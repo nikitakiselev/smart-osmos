@@ -24,3 +24,8 @@ Thumbs.db
 # Учётные данные Wi-Fi (не коммитить)
 arduino/smart-osmos/wifi_secrets.h
 **/wifi_secrets.h
+**/server_secrets.h
+
+# Python-сервер: БД и сертификаты
+server/*.db
+server/*.pem

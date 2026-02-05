@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Умный Осмос — история</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, sans-serif; margin: 0; padding: 20px; background: #1a1a2e; color: #eee; }
+    h1 { margin: 0 0 20px; }
+    .tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+    .tabs button { padding: 10px 20px; border: none; border-radius: 8px; background: #3a7bd5; color: #fff; cursor: pointer; font-weight: 600; }
+    .tabs button:hover { background: #2d5a9e; }
+    .tabs button.active { background: #6c5ce7; }
+    .chart-wrap { background: rgba(255,255,255,0.06); border-radius: 12px; padding: 20px; margin-bottom: 20px; max-width: 900px; }
+    .chart-wrap h2 { margin: 0 0 16px; font-size: 1.1rem; }
+    .chart-container { position: relative; height: 280px; }
+    footer { margin-top: 24px; color: #666; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+  <h1>Умный Осмос — история</h1>
+  <div class="tabs">
+    <button type="button" data-period="minute">По минутам (60 мин)</button>
+    <button type="button" data-period="hour" class="active">По часам (24 ч)</button>
+    <button type="button" data-period="day">По дням (7 дней)</button>
+    <button type="button" data-period="week">По неделям (12 нед)</button>
+  </div>
+
+  <div class="chart-wrap">
+    <h2>TDS (ppm) — среднее</h2>
+    <div class="chart-container"><canvas id="chartTds"></canvas></div>
+  </div>
+  <div class="chart-wrap">
+    <h2>Объём (л) — прирост за период</h2>
+    <div class="chart-container"><canvas id="chartVolume"></canvas></div>
+  </div>
+
+  <footer id="footer">Данные из SQLite. Автообновление каждые 5 сек.</footer>
+
+  <script>
+    const baseUrl = window.location.origin;
+    const AUTO_REFRESH_MS = 5000;
+    let chartTds = null;
+    let chartVolume = null;
+    let currentPeriod = 'hour';
+
+    function formatLabel(ts, period) {
+      const d = new Date(ts * 1000);
+      if (period === 'minute' || period === 'hour') return d.toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' });
+      if (period === 'day') return d.toLocaleDateString('ru', { day: '2-digit', month: '2-digit' });
+      return d.toLocaleDateString('ru', { day: '2-digit', month: '2-digit', year: '2-digit' });
+    }
+
+    function renderCharts(period) {
+      fetch(baseUrl + '/api/chart?period=' + period)
+        .then(r => r.json())
+        .then(res => {
+          const data = res.data || [];
+          const labels = data.map(r => formatLabel(r.ts, period));
+          const footer = document.getElementById('footer');
+          if (footer) footer.textContent = 'Данные из SQLite. Автообновление каждые 5 сек. Обновлено: ' + new Date().toLocaleTimeString('ru');
+
+          if (chartTds) chartTds.destroy();
+          chartTds = new Chart(document.getElementById('chartTds'), {
+            type: 'line',
+            data: {
+              labels,
+              datasets: [{
+                label: 'TDS (ppm)',
+                data: data.map(r => r.tds_ppm_avg),
+                borderColor: '#2ecc71',
+                backgroundColor: 'rgba(46, 204, 113, 0.1)',
+                fill: true,
+                tension: 0.2
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: { legend: { display: false } },
+              scales: {
+                x: { grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: '#aaa' } },
+                y: { grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: '#aaa' } }
+              }
+            }
+          });
+
+          if (chartVolume) chartVolume.destroy();
+          chartVolume = new Chart(document.getElementById('chartVolume'), {
+            type: 'bar',
+            data: {
+              labels,
+              datasets: [
+                { label: 'Вход (л)', data: data.map(r => r.volume_in_delta), backgroundColor: 'rgba(52, 152, 219, 0.9)' },
+                { label: 'Выход (л)', data: data.map(r => r.volume_out_delta), backgroundColor: 'rgba(231, 76, 60, 0.9)' }
+              ]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              scales: {
+                x: { grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: '#aaa' } },
+                y: { grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: '#aaa' } }
+              }
+            }
+          });
+        })
+        .catch(() => {});
+    }
+
+    document.querySelectorAll('.tabs button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentPeriod = btn.dataset.period;
+        renderCharts(currentPeriod);
+      });
+    });
+
+    renderCharts(currentPeriod);
+    setInterval(function() { renderCharts(currentPeriod); }, AUTO_REFRESH_MS);
+  </script>
+</body>
+</html>

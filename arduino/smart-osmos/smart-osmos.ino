@@ -12,6 +12,7 @@
 #include "flow_meter.h"
 #include "wifi_connector.h"
 #include "web_server.h"
+#include "remote_sender.h"
 #include <WiFi.h>
 
 static bool webServerStarted = false;
@@ -29,6 +30,7 @@ void setup()
     flowMeters.begin();
     Serial.println(F("[OK] Расходомеры"));
     wifiConnector.begin();
+    remoteSender.begin();
     Serial.println(F("[OK] WiFi запущен, ожидание подключения..."));
     Serial.println();
 }
@@ -54,6 +56,8 @@ void loop()
             Serial.println(WiFi.localIP());
         }
         webServerHandler.update();
+        if (remoteSender.isEnabled())
+            remoteSender.update();
     }
 
     // Без delay — полностью неблокирующий цикл
