@@ -68,12 +68,20 @@ def static_files(path):
 
 
 if __name__ == "__main__":
-    cert = os.environ.get("OSMOS_CERT", "cert.pem")
-    key = os.environ.get("OSMOS_KEY", "key.pem")
-    if os.path.isfile(cert) and os.path.isfile(key):
-        ssl_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-        ssl_ctx.load_cert_chain(cert, key)
-        app.run(host=HOST, port=PORT, ssl_context=ssl_ctx, threaded=True)
+    # За Caddy/nginx: OSMOS_NO_SSL=1 — запуск по HTTP (TLS на прокси)
+    no_ssl = os.environ.get("OSMOS_NO_SSL", "").strip().lower() in ("1", "true", "yes")
+    if no_ssl:
+        print("Running without SSL (behind reverse proxy).", flush=True)
+        app.run(host=HOST, port=PORT, threaded=True)
     else:
-        # Самоподписанный сертификат на лету (pyopenssl)
-        app.run(host=HOST, port=PORT, ssl_context="adhoc", threaded=True)
+        cert = os.environ.get("OSMOS_CERT", "cert.pem")
+        key = os.environ.get("OSMOS_KEY", "key.pem")
+        if os.path.isfile(cert) and os.path.isfile(key):
+            ssl_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+            ssl_ctx.load_cert_chain(cert, key)
+            ssl_ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+            ssl_ctx.set_ciphers("AES128-SHA:AES256-SHA:AES128-SHA256:AES256-SHA256")
+            app.run(host=HOST, port=PORT, ssl_context=ssl_ctx, threaded=True)
+        else:
+            print("Warning: no cert.pem/key.pem — using adhoc SSL; ESP32 may fail. Run: python gen_cert.py", flush=True)
+            app.run(host=HOST, port=PORT, ssl_context="adhoc", threaded=True)

@@ -154,6 +154,32 @@ pip install -r requirements.txt
 
 5. В **server_secrets.h** на ESP32 укажите IP машины с сервером и порт (например `SERVER_HOST` = IP ПК, `SERVER_PORT` = 8443). После прошивки ESP32 будет раз в минуту (или по `REMOTE_SEND_INTERVAL_MS`) отправлять JSON на `https://<SERVER_HOST>:<PORT>/api/ingest`.
 
+### Сервер за Caddy (reverse proxy с HTTPS)
+
+Если перед приложением стоит **Caddy** как reverse proxy (HTTPS на Caddy, проксирование на бэкенд):
+
+1. **Python-сервер** запускайте **без HTTPS** — Caddy принимает HTTPS и проксирует на бэкенд по HTTP. Пример:
+   ```bash
+   set OSMOS_PORT=8080
+   set OSMOS_NO_SSL=1
+   python app.py
+   ```
+   (Linux/macOS: `export OSMOS_NO_SSL=1`.) В Caddy укажите `reverse_proxy 127.0.0.1:8080`.
+
+2. В **server_secrets.h** на ESP32 укажите хост и порт **Caddy** (домен или IP сервера, порт 443): `SERVER_HOST`, `SERVER_PORT` = 443, `SERVER_PATH` = `/api/ingest` (если в Caddy путь к бэкенду именно такой).
+
+3. Если ESP32 выдаёт **«Connection reset by peer»** при подключении по HTTPS к Caddy — часто причина в том, что Caddy по умолчанию предлагает только современные шифры/протоколы, с которыми mbedTLS на ESP32 не согласуется. В **Caddyfile** для этого сайта добавьте явные `protocols` и `ciphers`, совместимые с ESP32 (TLS 1.2 и ECDHE-RSA с AES):
+   ```caddyfile
+   your-domain.com {
+       tls {
+           protocols tls1.2 tls1.3
+           ciphers TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+       }
+       reverse_proxy 127.0.0.1:8080
+   }
+   ```
+   После правок перезагрузите Caddy (`caddy reload` или перезапуск сервиса).
+
 ---
 
 ## Структура проекта
