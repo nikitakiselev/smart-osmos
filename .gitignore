@@ -1,0 +1,26 @@
+# PlatformIO
+.pio/
+.pioenvs/
+.piolibdeps/
+.vscode/.browse.ccl*
+.vscode/c_cpp_properties.json
+.vscode/launch.json
+.vscode/ipch
+
+# Arduino IDE
+*.ino.bak
+build/
+
+# IDE
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Учётные данные Wi-Fi (не коммитить)
+arduino/smart-osmos/wifi_secrets.h
+**/wifi_secrets.h
