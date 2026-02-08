@@ -7,6 +7,7 @@
 #include "config.h"
 #include "tds_sensor.h"
 #include "flow_meter.h"
+#include "led_io.h"
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
@@ -97,6 +98,7 @@ void RemoteSender::sendPayload()
     if (code == HTTP_CODE_OK || code == HTTP_CODE_CREATED || code == HTTP_CODE_ACCEPTED) {
         Serial.print(F("[Remote] OK code="));
         Serial.println(code);
+        Led::greenOnForMs(1000);
     } else {
         Serial.print(F("[Remote] POST failed: "));
         Serial.println(code);

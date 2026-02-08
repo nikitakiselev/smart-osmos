@@ -13,9 +13,12 @@
 #include "wifi_connector.h"
 #include "web_server.h"
 #include "remote_sender.h"
+#include "led_io.h"
 #include <WiFi.h>
 
 static bool webServerStarted = false;
+static unsigned long lastRedBlinkMs = 0;
+const unsigned long RED_BLINK_INTERVAL_MS = 500;
 
 void setup()
 {
@@ -29,6 +32,7 @@ void setup()
     Serial.println(F("[OK] TDS-метр"));
     flowMeters.begin();
     Serial.println(F("[OK] Расходомеры"));
+    Led::begin();
     wifiConnector.begin();
     remoteSender.begin();
     Serial.println(F("[OK] WiFi запущен, ожидание подключения..."));
@@ -46,8 +50,22 @@ void loop()
     // Обновление окна расчёта текущего расхода по расходомерам
     flowMeters.update();
 
+    // Красный: мигает при подключении к Wi-Fi, гаснет при успешном подключении
+    bool wifiOk = wifiConnector.isConnected();
+    if (wifiOk) {
+        Led::redOff();
+    } else {
+        unsigned long now = millis();
+        if (now - lastRedBlinkMs >= RED_BLINK_INTERVAL_MS) {
+            Led::redToggle();
+            lastRedBlinkMs = now;
+        }
+    }
+
+    Led::update();
+
     // Обработка HTTP только при подключённом Wi-Fi
-    if (wifiConnector.isConnected()) {
+    if (wifiOk) {
         if (!webServerStarted) {
             webServerHandler.begin();
             webServerStarted = true;
